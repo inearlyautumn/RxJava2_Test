@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 
+import com.google.gson.Gson;
 import com.jakewharton.retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import com.rxjava2_test.test1.GetRequest_Interface;
 import com.rxjava2_test.test1.Translation;
@@ -21,6 +22,7 @@ import io.reactivex.ObservableSource;
 import io.reactivex.Observer;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.schedulers.Schedulers;
@@ -31,6 +33,8 @@ import retrofit2.http.GET;
 
 public class MainActivity extends AppCompatActivity {
     public static final String TAG = MainActivity.class.getSimpleName();
+
+    //博客地址：http://blog.csdn.net/carson_ho/article/details/79168723
 
     //可重试次数
     private int maxConnectCount = 10;
@@ -62,11 +66,70 @@ public class MainActivity extends AppCompatActivity {
 //        test2();
 //        test3();
 //        test5();
-        test6();
+//        test6();
+//        test7();
+        test8();
     }
 
     /**
-     * 合并数据源
+     * 联合判断
+     * 需要同时对多个事件进行联合判断
+     * 如：填写表单时，需要表单里所有信息（姓名、年龄、职业等）都被填写后，才允许点击“提交”按钮
+     */
+    private void test8() {
+
+
+    }
+
+    /**
+     * 合并数据源 zip方式
+     */
+    private void test7() {
+        //采用 Zip() 操作符
+
+        /*
+        * 1、从不同数据源（2个服务器）获取数据，即 合并网络请求的发送
+        * 2、统一显示结果
+        * */
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl("http://fy.iciba.com/")
+                .addConverterFactory(GsonConverterFactory.create())
+                .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
+                .build();
+
+        GetRequest_Interface request = retrofit.create(GetRequest_Interface.class);
+
+        observable1 = request.getCall_1().subscribeOn(Schedulers.io());// 新开线程进行网络请求1
+        observable2 = request.getCall_2().subscribeOn(Schedulers.io());// 新开线程进行网络请求2
+        //即2个网络请求异步 & 同时发送
+
+        //通过使用 Zip() 对两个网络请求进行合并再发送
+        Observable.zip(observable1, observable2, new BiFunction<Translation1, Translation2, String>() {
+            // 注：创建 BiFunction 对象传入的第3个参数 = 合并后数据的数据类型
+            @Override
+            public String apply(Translation1 translation1, Translation2 translation2) throws Exception {
+                return translation1.show2() + " & " + translation2.show2();
+            }
+        })
+                .observeOn(AndroidSchedulers.mainThread())// 在主线程接收 & 处理数据
+                .subscribe(new Consumer<String>() {
+                    //成功返回数据时调用
+                    @Override
+                    public void accept(String s) throws Exception {
+                        //结合显示 2 个网络请求的数据结果
+                        LogUtil.i(TAG, "最终接收到的数据是： " + s);
+                    }
+                }, new Consumer<Throwable>() {
+                    //网络错误时调用
+                    @Override
+                    public void accept(Throwable throwable) throws Exception {
+                        LogUtil.i(TAG, "登录失败");
+                    }
+                });
+    }
+
+    /**
+     * 合并数据源 merge方式
      */
     private void test6() {
         // 采用 Merge() 操作符
@@ -92,7 +155,7 @@ public class MainActivity extends AppCompatActivity {
 
                     @Override
                     public void onNext(String s) {
-                        LogUtil.i(TAG, "数据源有： "+s);
+                        LogUtil.i(TAG, "数据源有： " + s);
                         result += s + "+";
                     }
 
@@ -110,16 +173,6 @@ public class MainActivity extends AppCompatActivity {
                         LogUtil.i(TAG, result);
                     }
                 });
-
-        //采用 Zip() 操作符
-
-        /*
-        * 1、从不同数据源（2个服务器）获取数据，即 合并网络请求的发送
-        * 2、统一显示结果
-        * */
-        new Retrofit.Builder()
-                .baseUrl("http://fy.iciba.com/")
-
     }
 
     /**
@@ -127,7 +180,7 @@ public class MainActivity extends AppCompatActivity {
      * 需要进行的嵌套网络的请求：即在第1个网络请求成功后，继续再进行一次网络请求
      */
     private void test5() {
-        
+
         //设置第1个Observable：检查内存缓存是否有该数据的缓存
         Observable<String> memory = Observable.create(new ObservableOnSubscribe<String>() {
             @Override
@@ -183,7 +236,7 @@ public class MainActivity extends AppCompatActivity {
                 .subscribe(new Consumer<String>() {
                     @Override
                     public void accept(String s) throws Exception {
-                        Log.i(TAG, "accept:---00 最终获取的数据来源 = "+s);
+                        Log.i(TAG, "accept:---00 最终获取的数据来源 = " + s);
                     }
                 });
     }

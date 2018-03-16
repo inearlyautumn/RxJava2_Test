@@ -27,4 +27,11 @@ public class Translation2 {
         LogUtil.i("RxJava", "翻译内容 = " + content.out);
 
     }
+
+    //定义 输出返回数据 的方法
+    public String show2() {
+
+        return ("第2次翻译=" + content.out);
+
+    }
 }
