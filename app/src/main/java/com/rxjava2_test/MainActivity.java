@@ -1,12 +1,16 @@
 package com.rxjava2_test;
 
+import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 
 import com.google.gson.Gson;
 import com.jakewharton.retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
+import com.jakewharton.rxbinding2.view.RxView;
 import com.rxjava2_test.test1.GetRequest_Interface;
 import com.rxjava2_test.test1.Translation;
 import com.rxjava2_test.test3.Translation1;
@@ -15,6 +19,10 @@ import com.rxjava2_test.test3.Translation2;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
+import io.reactivex.BackpressureStrategy;
+import io.reactivex.Flowable;
+import io.reactivex.FlowableEmitter;
+import io.reactivex.FlowableOnSubscribe;
 import io.reactivex.Observable;
 import io.reactivex.ObservableEmitter;
 import io.reactivex.ObservableOnSubscribe;
@@ -50,25 +58,199 @@ public class MainActivity extends AppCompatActivity {
     private String memoryCache = null;
     private String diskCache = "从磁盘缓存中获取数据";
     private String result = "数据源来自 = ";
+    private Button button;
+    private Button button1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        findViewById(R.id.btn_cancel).setOnClickListener(new View.OnClickListener() {
+        button = (Button) findViewById(R.id.btn_test0);
+
+        button1 = (Button) findViewById(R.id.btn_test1);
+
+        button1.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
+                test12();
             }
         });
+
 //        test1();
 //        test2();
 //        test3();
 //        test5();
 //        test6();
 //        test7();
-        test8();
+//        test8();
+//        test9();
+//        test10();
+//        test11();
+//        test12();
+//        test13();
+    }
+
+    /**
+     * 控制被观察者发送事件 & 观察者接收事件速度：背压
+     * 观察者 & 被观察者 之间存在2种订阅关系： 同步 & 异步。
+     * <p>
+     * 对于异步订阅关系，存在被观察者发送事件速度与观察者接收事件速度不匹配的情况
+     * 由于被观察者发送事件速度 > 观察者接收事件速度，所以出现流速不匹配问题，从而导致OOM
+     */
+    private void test13() {
+        //步骤一：创建被观察者 = Flowable
+        Flowable.create(new FlowableOnSubscribe<Integer>() {
+            @Override
+            public void subscribe(FlowableEmitter<Integer> e) throws Exception {
+                e.onNext(1);
+                e.onNext(2);
+                e.onNext(3);
+                e.onComplete();
+            }
+        }, BackpressureStrategy.ERROR);
+    }
+
+    /**
+     * 被观察者 发送事件速度太快，而观察者 来不及接收所有事件，从而导致观察者无法及时响应 / 处理所有发送过来事件的问题，
+     * 最终导致缓存区溢出、事件丢失 & OOM
+     */
+    private void test12() {
+        Observable.create(new ObservableOnSubscribe<Integer>() {
+            @Override
+            public void subscribe(ObservableEmitter<Integer> e) throws Exception {
+                for (int i = 0; i < 30; i++) {
+                    LogUtil.i(TAG, "发送了事件 "+i);
+                    Thread.sleep(10);
+                    //发送事件速度： 10ms/ 个
+                    e.onNext(i);
+                }
+            }
+        }).subscribeOn(Schedulers.io()) // 设置被观察者在io线程中进行
+            .observeOn(AndroidSchedulers.mainThread()) // 设置观察者在主线程中进行
+        .subscribe(new Observer<Integer>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+                LogUtil.i(TAG,"开始采用subscribe链接");
+            }
+
+            @Override
+            public void onNext(Integer integer) {
+                try {
+                    Thread.sleep(5000);
+                    //接收事件速度: 5s/个
+                    LogUtil.i(TAG,"接收到了事件 "+integer);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                LogUtil.i(TAG, "对Error事件作出响应");
+            }
+
+            @Override
+            public void onComplete() {
+                LogUtil.i(TAG,"对Complete事件作出响应");
+            }
+        });
+    }
+
+    /**
+     * 联想搜索优化
+     */
+    private void test11() {
+        Intent intent = new Intent(this, AssociativeSearch.class);
+        startActivity(intent);
+    }
+
+    /**
+     * 功能防抖
+     */
+    private void test10() {
+        /*
+        * 1. 此处采用了RxBinding: RxView.clicks(button) = 对控件点击进行监听，需要引入依赖：
+        * compile 'com.jakewharton.rxbinding2:rxbinding:2.0.0'
+        *
+        * 2. 传入Button控件，点击时，都会发送数据事件（但由于使用了throttleFirst()操作符，所以只会发送
+        * 该时间内的第1次点击事件）
+        * */
+        RxView.clicks(button)
+                .throttleFirst(2, TimeUnit.SECONDS) //只发送 2秒内第1次点击按钮事件
+                .subscribe(new Observer<Object>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+
+                    }
+
+                    @Override
+                    public void onNext(Object o) {
+                        LogUtil.i(TAG, "发送了网络请求");
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        LogUtil.i(TAG, "对Error事件作出响应 " + e.toString());
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        LogUtil.i(TAG, "对Complete事件作出响应");
+                    }
+                });
+    }
+
+    /**
+     * 线程控制（切换 / 调度 ）
+     * 需求场景：新开工作线程执行耗时操作；待执行完毕后，切换到主线程实时更新
+     * <p>
+     * Schedulers.newThread(): 常规线程（耗时等操作）
+     * Schedulers.io(): io操作线程（网络请求、读写文件等io密集型操作）
+     */
+    private void test9() {
+        //步骤一：创建被观察者 Observable & 发送事件
+        //在主线程创建被观察者 Observable 对象，所以生产事件的线程是：主线程
+        Observable<Integer> observable = Observable.create(new ObservableOnSubscribe<Integer>() {
+            @Override
+            public void subscribe(ObservableEmitter<Integer> e) throws Exception {
+                LogUtil.i(TAG, "被观察者 Observable 的工作线程是： " + Thread.currentThread().getName());
+                //打印验证
+                e.onNext(754);
+                e.onComplete();
+            }
+        }).subscribeOn(Schedulers.newThread())
+                .observeOn(AndroidSchedulers.mainThread());
+
+        //步骤二：创建观察者 Observable 并定义响应事件行为
+        //在主线程创建观察者 Observer对象
+        //所以接收  & 响应事件的线程是：主线程
+        Observer<Integer> observer = new Observer<Integer>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+                LogUtil.i(TAG, "开始采用subscribe连接");
+                LogUtil.i(TAG, "观察者 Observer的工作线程是：" + Thread.currentThread().getName());
+                //打印验证
+            }
+
+            @Override
+            public void onNext(Integer integer) {
+                LogUtil.i(TAG, "对Next事件 " + integer + " 作出响应");
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                LogUtil.i(TAG, "对Error事件作出响应");
+            }
+
+            @Override
+            public void onComplete() {
+                LogUtil.i(TAG, "对complete事件作出响应");
+            }
+        };
+        //步骤三：通过订阅(subscribe)连接观察者和被观察者
+        observable.subscribe(observer);
+
     }
 
     /**
@@ -77,7 +259,8 @@ public class MainActivity extends AppCompatActivity {
      * 如：填写表单时，需要表单里所有信息（姓名、年龄、职业等）都被填写后，才允许点击“提交”按钮
      */
     private void test8() {
-
+        Intent intent = new Intent(this, JudgmentActivity.class);
+        startActivity(intent);
 
     }
 

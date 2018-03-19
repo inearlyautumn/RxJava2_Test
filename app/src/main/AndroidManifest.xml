@@ -20,6 +20,10 @@
         </activity>
         <activity android:name=".test1.RxJavafixRxjava">
         </activity>
+        <activity android:name=".JudgmentActivity">
+        </activity>
+        <activity android:name=".AssociativeSearch">
+        </activity>
     </application>
 
 </manifest>
