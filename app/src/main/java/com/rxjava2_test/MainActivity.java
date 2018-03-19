@@ -16,6 +16,9 @@ import com.rxjava2_test.test1.Translation;
 import com.rxjava2_test.test3.Translation1;
 import com.rxjava2_test.test3.Translation2;
 
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
+
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
@@ -70,13 +73,6 @@ public class MainActivity extends AppCompatActivity {
 
         button1 = (Button) findViewById(R.id.btn_test1);
 
-        button1.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                test12();
-            }
-        });
-
 //        test1();
 //        test2();
 //        test3();
@@ -87,8 +83,7 @@ public class MainActivity extends AppCompatActivity {
 //        test9();
 //        test10();
 //        test11();
-//        test12();
-//        test13();
+        test13();
     }
 
     /**
@@ -99,62 +94,8 @@ public class MainActivity extends AppCompatActivity {
      * 由于被观察者发送事件速度 > 观察者接收事件速度，所以出现流速不匹配问题，从而导致OOM
      */
     private void test13() {
-        //步骤一：创建被观察者 = Flowable
-        Flowable.create(new FlowableOnSubscribe<Integer>() {
-            @Override
-            public void subscribe(FlowableEmitter<Integer> e) throws Exception {
-                e.onNext(1);
-                e.onNext(2);
-                e.onNext(3);
-                e.onComplete();
-            }
-        }, BackpressureStrategy.ERROR);
-    }
-
-    /**
-     * 被观察者 发送事件速度太快，而观察者 来不及接收所有事件，从而导致观察者无法及时响应 / 处理所有发送过来事件的问题，
-     * 最终导致缓存区溢出、事件丢失 & OOM
-     */
-    private void test12() {
-        Observable.create(new ObservableOnSubscribe<Integer>() {
-            @Override
-            public void subscribe(ObservableEmitter<Integer> e) throws Exception {
-                for (int i = 0; i < 30; i++) {
-                    LogUtil.i(TAG, "发送了事件 "+i);
-                    Thread.sleep(10);
-                    //发送事件速度： 10ms/ 个
-                    e.onNext(i);
-                }
-            }
-        }).subscribeOn(Schedulers.io()) // 设置被观察者在io线程中进行
-            .observeOn(AndroidSchedulers.mainThread()) // 设置观察者在主线程中进行
-        .subscribe(new Observer<Integer>() {
-            @Override
-            public void onSubscribe(Disposable d) {
-                LogUtil.i(TAG,"开始采用subscribe链接");
-            }
-
-            @Override
-            public void onNext(Integer integer) {
-                try {
-                    Thread.sleep(5000);
-                    //接收事件速度: 5s/个
-                    LogUtil.i(TAG,"接收到了事件 "+integer);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                LogUtil.i(TAG, "对Error事件作出响应");
-            }
-
-            @Override
-            public void onComplete() {
-                LogUtil.i(TAG,"对Complete事件作出响应");
-            }
-        });
+        Intent intent = new Intent(this, BackPressureAct.class);
+        startActivity(intent);
     }
 
     /**

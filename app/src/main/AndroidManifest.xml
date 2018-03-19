@@ -24,6 +24,8 @@
         </activity>
         <activity android:name=".AssociativeSearch">
         </activity>
+        <activity android:name=".BackPressureAct">
+        </activity>
     </application>
 
 </manifest>
